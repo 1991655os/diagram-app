@@ -1,7 +1,7 @@
 {
-  "name": "diagram-app",
+  "name": "diagram-app-with-chart",
   "version": "1.0.0",
-  "description": "Круговая диаграмма",
+  "description": "Приложение с круговой диаграммой",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

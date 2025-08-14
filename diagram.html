@@ -1,37 +1,330 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Круговая диаграмма</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f8f7ff;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            height: 100vh; /* Полная высота экрана */
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            color: #7952B3;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+
+        .container {
+            position: relative; /* Родительский контейнер */
+            flex: 1; /* Занимает оставшееся пространство */
+        }
+
+        svg {
+            position: absolute; /* Абсолютное позиционирование для SVG */
+            bottom: 0; /* Прикрепляем к низу */
+            left: 0; /* Прикрепляем к левому краю */
+            right: 0; /* Прикрепляем к правому краю */
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 95%; /* Масштабируемая ширина */
+            height: auto;
+            max-height: 50vh; /* Ограничение высоты */
+            margin: 0 auto; /* Центрируем по горизонтали */
+        }
+
+        .controls {
+            padding: 5px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
+        .controls label {
+            color: #7952B3;
+            font-weight: bold;
+            font-size: 0.6em;
+            margin: 0 3px;
+        }
+
+        .controls input,
+        .controls select {
+            padding: 3px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+            width: auto;
+            max-width: 60px;
+            font-size: 0.6em;
+            text-align: center;
+        }
+
+        .controls button {
+            background: linear-gradient(to right, #8E2DE2, #4A00E0);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            padding: 3px 6px;
+            border-radius: 5px;
+            font-size: 0.6em;
+            margin: 0 2px;
+        }
+
+        .controls button:hover {
+            background: linear-gradient(to right, #4A00E0, #8E2DE2);
+        }
+
+        /* Styles for Mobile Devices */
+        @media (max-width: 720px) {
+            .controls-row {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .controls label {
+                font-size: 0.6em;
+                width: 40%;
+                text-align: left;
+            }
+
+            .controls input,
+            .controls select {
+                width: 55%;
+                max-width: none;
+                font-size: 0.7em;
+            }
+
+            .controls button {
+                font-size: 0.7em;
+                padding: 3px 5px;
+            }
+        }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-    <h1>Пример круговой диаграммы</h1>
-    <canvas id="myChart" width="400" height="400"></canvas>
+<body>
+    <h1>Круговая диаграмма</h1>
+    <div class="container">
+        <svg id="diagramSvg" viewBox="0 0 600 300" width="95%"></svg>
+    </div>
+    <div class="controls">
+        <div class="controls-row">
+            <label for="valueField">Значение:</label>
+            <input type="text" id="valueField" readonly>
+        </div>
+        
+        <div class="controls-row">
+            <button onclick="submitValue()">Верно</button>
+        </div>
+    </div>
 
     <script>
-        const ctx = document.getElementById('myChart').getContext('2d');
-        const myChart = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: ['Красный', 'Синий', 'Жёлтый'],
-                datasets: [{
-                    label: 'Пример данных',
-                    data: [12, 19, 3],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.6)',
-                        'rgba(54, 162, 235, 0.6)',
-                        'rgba(255, 206, 86, 0.6)'
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)'
-                    ],
-                    borderWidth: 1
-                }]
+        const svg = document.getElementById('diagramSvg');
+        const centerX = 300;
+        const centerY = 300;
+        const radius = Math.min(centerX - 10, centerY - 10);
+
+        let selectedSector = null;
+        let level = 'units'; // Уровень выбора: единицы, десятки, сотни
+        let number = { hundreds: 0, tens: 0, units: 0 }; // Формируемое число
+        let lastSelectedSector = null;
+
+        function drawDiagram() {
+            svg.innerHTML = ''; // Очищаем SVG
+
+            let sectors = 10;
+            let angleStep = Math.PI / sectors;
+
+            if (level === 'units') {
+                sectors = 11; // Для единиц добавляем сектор "больше"
+                angleStep = Math.PI / sectors;
+            } else if (level === 'tens') {
+                sectors = 10; // Для десятков без сектора "0"
+                angleStep = Math.PI / sectors;
+            } else if (level === 'hundreds') {
+                sectors = 9; // Для сотен без сектора "1000"
+                angleStep = Math.PI / sectors;
             }
-        });
+
+            for (let i = 0; i < sectors; i++) {
+                const startAngle = i * angleStep - Math.PI;
+                const endAngle = startAngle + angleStep;
+
+                // Создаем сектор
+                const sector = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                const d = `M ${centerX} ${centerY} L ${centerX + Math.cos(startAngle) * radius} ${centerY + Math.sin(startAngle) * radius} A ${radius} ${radius} 0 0 1 ${centerX + Math.cos(endAngle) * radius} ${centerY + Math.sin(endAngle) * radius} Z`;
+                sector.setAttribute('d', d);
+                sector.setAttribute('stroke', 'black');
+                sector.setAttribute('fill', 'transparent');
+                sector.setAttribute('data-sector', i);
+                sector.addEventListener('click', handleSectorClick);
+                svg.appendChild(sector);
+
+                // Выделяем выбранный сектор
+                if (selectedSector === i) {
+                    sector.setAttribute('fill', 'rgba(139, 0, 255, 0.2)'); // Прозрачный фиолетовый
+                }
+
+                // Добавляем изображение или текст
+                const textAngle = startAngle + angleStep / 2;
+                const textX = centerX + Math.cos(textAngle) * radius * 0.7;
+                const textY = centerY + Math.sin(textAngle) * radius * 0.7;
+
+                if (level === 'units') {
+                    if (i === 10) {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute('x', textX);
+                        text.setAttribute('y', textY);
+                        text.setAttribute('font-size', '16');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('dominant-baseline', 'middle');
+                        text.setAttribute('fill', 'black');
+                        text.textContent = 'Больше';
+                        svg.appendChild(text);
+                    } else {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute('x', textX);
+                        text.setAttribute('y', textY);
+                        text.setAttribute('font-size', '16');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('dominant-baseline', 'middle');
+                        text.setAttribute('fill', 'black');
+                        text.textContent = i.toString();
+                        svg.appendChild(text);
+                    }
+                } else if (level === 'tens') {
+                    if (i === 9) {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute('x', textX);
+                        text.setAttribute('y', textY);
+                        text.setAttribute('font-size', '16');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('dominant-baseline', 'middle');
+                        text.setAttribute('fill', 'black');
+                        text.textContent = 'Больше';
+                        svg.appendChild(text);
+                    } else {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute('x', textX);
+                        text.setAttribute('y', textY);
+                        text.setAttribute('font-size', '16');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('dominant-baseline', 'middle');
+                        text.setAttribute('fill', 'black');
+                        text.textContent = (i + 1) * 10; // Отображаем десятки без нуля
+                        svg.appendChild(text);
+                    }
+                } else if (level === 'hundreds') {
+                    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    text.setAttribute('x', textX);
+                    text.setAttribute('y', textY);
+                    text.setAttribute('font-size', '16');
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('dominant-baseline', 'middle');
+                    text.setAttribute('fill', 'black');
+                    text.textContent = (i + 1) * 100; // Отображаем сотни без нуля
+                    svg.appendChild(text);
+                }
+            }
+
+            // Маленький полукруг в центре
+            const centerSemiCircle = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const centerSemiCircled = `M ${centerX + radius * 0.05} ${centerY} A ${radius * 0.05} ${radius * 0.05} 0 0 0 ${centerX - radius * 0.05} ${centerY}`
+            centerSemiCircle.setAttribute('d', centerSemiCircled);
+            centerSemiCircle.setAttribute('stroke', 'black');
+            centerSemiCircle.setAttribute('fill', 'none');
+            svg.appendChild(centerSemiCircle);
+
+            // Центральная точка
+            const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            centerDot.setAttribute('cx', centerX);
+            centerDot.setAttribute('cy', centerY);
+            centerDot.setAttribute('r', 3);
+            centerDot.setAttribute('fill', 'black');
+            svg.appendChild(centerDot);
+        }
+
+        function handleSectorClick(event) {
+            const sectorIndex = parseInt(event.target.getAttribute('data-sector'));
+            selectedSector = sectorIndex;
+            lastSelectedSector = sectorIndex;
+
+            if (level === 'units') {
+                if (sectorIndex === 10) {
+                    setTimeout(() => {
+                        level = 'tens';
+                        selectedSector = null;
+                        drawDiagram();
+                    }, 500);
+                } else {
+                    number.units = sectorIndex;
+                    document.getElementById('valueField').value = `${number.hundreds}${number.tens}${number.units}`.replace(/^0+/, '');
+                }
+            } else if (level === 'tens') {
+                if (sectorIndex === 9) {
+                    setTimeout(() => {
+                        level = 'hundreds';
+                        selectedSector = null;
+                        drawDiagram();
+                    }, 500);
+                } else {
+                    number.tens = sectorIndex + 1; // Учитываем, что десятки начинаются с 10
+                    setTimeout(() => {
+                        level = 'units';
+                        selectedSector = null;
+                        drawDiagram();
+                    }, 500);
+                }
+            } else if (level === 'hundreds') {
+                number.hundreds = sectorIndex + 1; // Учитываем, что сотни начинаются с 100
+                setTimeout(() => {
+                    level = 'tens';
+                    selectedSector = null;
+                    drawDiagram();
+                }, 500);
+            }
+
+            drawDiagram();
+        }
+
+        function submitValue() {
+            const valueField = document.getElementById('valueField').value;
+
+            if (valueField) {
+                const targetFieldId = localStorage.getItem('targetField');
+                
+                if (targetFieldId) {
+                    localStorage.setItem(targetFieldId, valueField);
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        drawDiagram(); // Рисуем диаграмму при загрузке страницы
     </script>
 </body>
 </html>

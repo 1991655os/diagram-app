@@ -1,7 +1,7 @@
 {
   "name": "diagram-app",
   "version": "1.0.0",
-  "description": "Сервер для diagram.html",
+  "description": "Круговая диаграмма",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

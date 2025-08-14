@@ -1,18 +1,15 @@
-// server.js
 const express = require('express');
 const path = require('path');
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Отдаём статические файлы
-app.use(express.static(path.join(__dirname)));
+// Отдаём статические файлы (diagram.html и папку с ресурсами)
+app.use(express.static(__dirname));
 
-// Главная страница
+// Отдаём diagram.html при заходе на /
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'diagram.html'));
+    res.sendFile(path.join(__dirname, 'diagram.html'));
 });
 
+// Используем порт, который назначает Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
-
-});

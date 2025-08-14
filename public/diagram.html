@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Круговая диаграмма</title>
+    <title>Геометрическая фигура и сетка</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -13,9 +14,6 @@
             color: #333;
             margin: 0;
             padding: 0;
-            height: 100vh; /* Полная высота экрана */
-            display: flex;
-            flex-direction: column;
         }
 
         h1 {
@@ -25,23 +23,17 @@
             font-size: 1.1em;
         }
 
-        .container {
-            position: relative; /* Родительский контейнер */
-            flex: 1; /* Занимает оставшееся пространство */
-        }
-
         svg {
-            position: absolute; /* Абсолютное позиционирование для SVG */
-            bottom: 0; /* Прикрепляем к низу */
-            left: 0; /* Прикрепляем к левому краю */
-            right: 0; /* Прикрепляем к правому краю */
             border: 1px solid #ddd;
+            display: block;
+            margin: 5px auto;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            width: 95%; /* Масштабируемая ширина */
+            width: 95%;
+            /* Масштабируемая ширина */
             height: auto;
-            max-height: 50vh; /* Ограничение высоты */
-            margin: 0 auto; /* Центрируем по горизонтали */
+            max-height: 50vh;
+            /* Ограничение высоты */
         }
 
         .controls {
@@ -124,40 +116,400 @@
                 padding: 3px 5px;
             }
         }
+
+        #diagramSvg {
+            display: none;
+        }
     </style>
 </head>
+
 <body>
-    <h1>Круговая диаграмма</h1>
-    <div class="container">
-        <svg id="diagramSvg" viewBox="0 0 600 300" width="95%"></svg>
-    </div>
+    <h1>Геометрическая фигура и сетка</h1>
+
+    <svg id="svg" viewBox="0 0 600 600" width="95%"></svg>
+
+    <svg id="diagramSvg" viewBox="0 0 1200 1200" width="95%"></svg>
+
     <div class="controls">
         <div class="controls-row">
-            <label for="valueField">Значение:</label>
-            <input type="text" id="valueField" readonly>
+            <label for="sides">Углы:</label>
+            <input type="number" id="sides" min="3" max="10" value="5">
+            <button onclick="openDiagram('sides')">Д</button>
+            
+            <label for="star">Звезда:</label>
+            <select id="star">
+                <option value="no">Нет</option>
+                <option value="yes" selected="selected">Да</option>
+            </select>
         </div>
-        
+
         <div class="controls-row">
+            <label for="circles">Круги:</label>
+            <input type="number" id="circles" min="1" value="1">
+            <button onclick="openDiagram('circles')">Д</button>
+
+            <label for="touchingCircles">Касание:</label>
+            <select id="touchingCircles">
+                <option value="yes" selected="selected">Да</option>
+                <option value="no">Нет</option>
+            </select>
+
+            <label for="distance">Расстояние:</label>
+            <input type="number" id="distance" min="1" value="5">
+            <button onclick="openDiagram('distance')">Д</button>
+        </div>
+
+        <div class="controls-row">
+            <label for="rows">Строки:</label>
+            <input type="number" id="rows" min="1" value="3">
+            <button onclick="openDiagram('rows')">Д</button>
+
+            <label for="columns">Столбцы:</label>
+            <input type="number" id="columns" min="1" value="3">
+            <button onclick="openDiagram('columns')">Д</button>
+
+            <label for="symbol">Символ:</label>
+            <input type="text" id="symbol" maxlength="1">
+        </div>
+
+        <div class="controls-row">
+            <button onclick="addSymbol()">Внести символ</button>
+            <button onclick="draw()">Сформировать</button>
+            <button onclick="saveAsPNG()">Сохранить</button>
             <button onclick="submitValue()">Верно</button>
         </div>
+
     </div>
 
+    <!-- Скрипт -->
     <script>
-        const svg = document.getElementById('diagramSvg');
-        const centerX = 300;
-        const centerY = 300;
-        const radius = Math.min(centerX - 10, centerY - 10);
+        const svg = document.getElementById('svg');
+        let grid = [];
+        let currentCell = 0;
 
+        // Диаграмма
+        const diagramSvg = document.getElementById('diagramSvg');
         let selectedSector = null;
         let level = 'units'; // Уровень выбора: единицы, десятки, сотни
-        let number = { hundreds: 0, tens: 0, units: 0 }; // Формируемое число
-        let lastSelectedSector = null;
+        let number = {
+            hundreds: 0,
+            tens: 0,
+            units: 0
+        }; // Формируемое число
+        let targetFieldId = null;
+
+
+        function draw() {
+            // Очистка SVG
+            svg.innerHTML = '';
+
+            const sides = parseInt(document.getElementById('sides').value);
+            const circles = parseInt(document.getElementById('circles').value);
+            const distance = parseInt(document.getElementById('distance').value);
+            const rows = parseInt(document.getElementById('rows').value);
+            const columns = parseInt(document.getElementById('columns').value);
+            const star = document.getElementById('star').value === 'yes';
+            const touchingCircles = document.getElementById('touchingCircles').value === 'yes';
+
+            const centerX = 300; // Center is fixed in viewBox
+            const centerY = 300;
+
+            let maxRadius = Math.min(centerX, centerY) - (circles - 1) * distance;
+
+            // Рисование кругов
+            for (let i = 0; i < circles; i++) {
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute('cx', centerX);
+                circle.setAttribute('cy', centerY);
+                circle.setAttribute('r', maxRadius + i * distance);
+                circle.setAttribute('stroke', 'black');
+                circle.setAttribute('fill', 'none');
+                svg.appendChild(circle);
+            }
+
+            // Рисование фигуры
+            let polygonRadius = maxRadius;
+            let points = [];
+            let lines = [];
+
+            if (sides >= 3) {
+                // Calculate points for the polygon
+                for (let i = 0; i < sides; i++) {
+                    const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
+                    let x = centerX + Math.cos(angle) * polygonRadius;
+                    let y = centerY + Math.sin(angle) * polygonRadius;
+                    points.push({
+                        x,
+                        y
+                    });
+                }
+
+                if (star && sides > 4) {
+                    // Рисование звезды
+                    for (let i = 0; i < sides; i++) {
+                        const nextIndex = (i + 2) % sides;
+                        lines.push({
+                            x1: points[i].x,
+                            y1: points[i].y,
+                            x2: points[nextIndex].x,
+                            y2: points[nextIndex].y
+                        });
+                        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute('x1', points[i].x);
+                        line.setAttribute('y1', points[i].y);
+                        line.setAttribute('x2', points[nextIndex].x);
+                        line.setAttribute('y2', points[nextIndex].y);
+                        line.setAttribute('stroke', 'black');
+                        svg.appendChild(line);
+                    }
+                } else {
+                    // Рисование многоугольника
+                    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    let pointsStr = '';
+                    for (let i = 0; i < sides; i++) {
+                        lines.push({
+                            x1: points[i].x,
+                            y1: points[i].y,
+                            x2: points[(i + 1) % sides].x,
+                            y2: points[(i + 1) % sides].y
+                        });
+                        pointsStr += `${points[i].x},${points[i].y} `;
+                    }
+                    polygon.setAttribute('points', pointsStr);
+                    polygon.setAttribute('stroke', 'black');
+                    polygon.setAttribute('fill', 'none');
+                    svg.appendChild(polygon);
+                }
+
+                if (touchingCircles === false) {
+                    // Уменьшаем многогранную фигуру
+                    polygonRadius = maxRadius - distance;
+                    points = [];
+                    svg.innerHTML = '';
+
+                    for (let i = 0; i < sides; i++) {
+                        const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
+                        let x = centerX + Math.cos(angle) * polygonRadius;
+                        let y = centerY + Math.sin(angle) * polygonRadius;
+                        points.push({
+                            x,
+                            y
+                        });
+                    }
+
+                    // Рисование кругов
+                    for (let i = 0; i < circles; i++) {
+                        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        circle.setAttribute('cx', centerX);
+                        circle.setAttribute('cy', centerY);
+                        circle.setAttribute('r', maxRadius + i * distance);
+                        circle.setAttribute('stroke', 'black');
+                        circle.setAttribute('fill', 'none');
+                        svg.appendChild(circle);
+                    }
+
+                    if (star && sides > 4) {
+                        // Рисование звезды
+                        for (let i = 0; i < sides; i++) {
+                            const nextIndex = (i + 2) % sides;
+                            lines.push({
+                                x1: points[i].x,
+                                y1: points[i].y,
+                                x2: points[nextIndex].x,
+                                y2: points[nextIndex].y
+                            });
+                            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            line.setAttribute('x1', points[i].x);
+                            line.setAttribute('y1', points[i].y);
+                            line.setAttribute('x2', points[nextIndex].x);
+                            line.setAttribute('y2', points[nextIndex].y);
+                            line.setAttribute('stroke', 'black');
+                            svg.appendChild(line);
+                        }
+                    } else {
+                        // Рисование многоугольника
+                        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                        let pointsStr = '';
+                        for (let i = 0; i < sides; i++) {
+                            lines.push({
+                                x1: points[i].x,
+                                y1: points[i].y,
+                                x2: points[(i + 1) % sides].x,
+                                y2: points[(i + 1) % sides].y
+                            });
+                            pointsStr += `${points[i].x},${points[i].y} `;
+                        }
+                        polygon.setAttribute('points', pointsStr);
+                        polygon.setAttribute('stroke', 'black');
+                        polygon.setAttribute('fill', 'none');
+                        svg.appendChild(polygon);
+                    }
+
+                }
+            }
+
+            // Рисование квадрата внутри фигуры
+            let squareSize = 0;
+            let squareX = 0;
+            let squareY = 0;
+
+            if (sides >= 3) {
+                // Calculate the maximum square size based on the lines
+                let maxSquareSize = polygonRadius; // Initial estimate
+
+                // Iterate through the lines and find the maximum square size that doesn't intersect any lines
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    // Calculate the distance from the center to the line
+                    const distanceToLine = distanceToLineSegment(centerX, centerY, line.x1, line.y1, line.x2, line.y2);
+                    // Use the distance to calculate the maximum possible square size
+                    const possibleSquareSize = distanceToLine * Math.sqrt(2);
+                    // Keep track of the smallest possible square size
+                    maxSquareSize = Math.min(maxSquareSize, possibleSquareSize);
+                }
+
+                squareSize = maxSquareSize;
+                squareX = centerX - squareSize / 2;
+                squareY = centerY - squareSize / 2;
+            }
+
+            const square = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            square.setAttribute('x', squareX);
+            square.setAttribute('y', squareY);
+            square.setAttribute('width', squareSize);
+            square.setAttribute('height', squareSize);
+            square.setAttribute('stroke', 'black');
+            square.setAttribute('fill', 'none');
+            svg.appendChild(square);
+
+            // Рисование сетки внутри квадрата
+            const cellSize = squareSize / Math.max(rows, columns); // Размер ячейки сетки
+            const gridWidth = cellSize * columns;
+            const gridHeight = cellSize * rows;
+
+            // Вычисляем смещение для центрирования сетки
+            const offsetX = squareX + (squareSize - gridWidth) / 2;
+            const offsetY = squareY + (squareSize - gridHeight) / 2;
+
+            grid = [];
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    const x = offsetX + col * cellSize;
+                    const y = offsetY + row * cellSize;
+
+                    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('width', cellSize);
+                    rect.setAttribute('height', cellSize);
+                    rect.setAttribute('stroke', 'black');
+                    rect.setAttribute('fill', 'none');
+                    svg.appendChild(rect);
+
+                    grid.push({
+                        x: x + cellSize / 2,
+                        y: y + cellSize / 2
+                    });
+                }
+            }
+
+            currentCell = 0; // Сброс заполнения ячеек
+        }
+
+        function distanceToLineSegment(x0, y0, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const l2 = dx * dx + dy * dy;
+            if (l2 === 0) return Math.hypot(x0 - x1, y0 - y1);
+            const t = Math.max(0, Math.min(1, ((x0 - x1) * dx + (y0 - y1) * dy) / l2));
+            const x = x1 + t * dx;
+            const y = y1 + t * dy;
+            return Math.hypot(x - x0, y - y0);
+        }
+
+        function addSymbol() {
+            if (currentCell >= grid.length) return;
+
+            const symbol = document.getElementById('symbol').value;
+            if (!symbol) return;
+
+            const {
+                x,
+                y
+            } = grid[currentCell];
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute('x', x);
+            text.setAttribute('y', y);
+            text.setAttribute('font-size', '16');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'middle');
+            text.textContent = symbol;
+            svg.appendChild(text);
+
+            currentCell++;
+        }
+
+        function saveAsPNG() {
+            const serializer = new XMLSerializer();
+            const svgStr = serializer.serializeToString(svg);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 3000;
+            canvas.height = 3000;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const img = new Image();
+            img.onload = function () {
+                const scale = Math.min(canvas.width / svg.width.baseVal.value, canvas.height / svg.height.baseVal.value);
+                const x = (canvas.width - svg.width.baseVal.value * scale) / 2;
+                const y = (canvas.height - svg.height.baseVal.value * scale) / 2;
+
+                ctx.drawImage(img, x, y, svg.width.baseVal.value * scale, svg.height.baseVal.value * scale);
+
+                const blob = canvas.toBlob(function (blob) {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'drawing.png';
+                    a.click();
+                }, 'image/png');
+            };
+            img.src = 'data:image/svg+xml;base64,' + btoa(svgStr);
+        }
+
+
+        // Функционал диаграммы
+        function openDiagram(fieldId) {
+            targetFieldId = fieldId;
+            diagramSvg.style.display = 'block'; // Показываем SVG
+            svg.style.display = 'none';
+
+            // Сброс параметров
+            selectedSector = null;
+            level = 'units';
+            number = {
+                hundreds: 0,
+                tens: 0,
+                units: 0
+            };
+
+            drawDiagram();
+        }
 
         function drawDiagram() {
-            svg.innerHTML = ''; // Очищаем SVG
+            diagramSvg.innerHTML = ''; // Очищаем SVG
 
             let sectors = 10;
             let angleStep = Math.PI / sectors;
+
+            //  Измененные значения для увеличения диаграммы
+            const centerX = 600;
+            const centerY = 600;
+            const radius = Math.min(centerX - 10, centerY - 10);
+
 
             if (level === 'units') {
                 sectors = 11; // Для единиц добавляем сектор "больше"
@@ -182,7 +534,7 @@
                 sector.setAttribute('fill', 'transparent');
                 sector.setAttribute('data-sector', i);
                 sector.addEventListener('click', handleSectorClick);
-                svg.appendChild(sector);
+                diagramSvg.appendChild(sector);
 
                 // Выделяем выбранный сектор
                 if (selectedSector === i) {
@@ -199,55 +551,55 @@
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute('x', textX);
                         text.setAttribute('y', textY);
-                        text.setAttribute('font-size', '16');
+                        text.setAttribute('font-size', '32');
                         text.setAttribute('text-anchor', 'middle');
                         text.setAttribute('dominant-baseline', 'middle');
                         text.setAttribute('fill', 'black');
                         text.textContent = 'Больше';
-                        svg.appendChild(text);
+                        diagramSvg.appendChild(text);
                     } else {
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute('x', textX);
                         text.setAttribute('y', textY);
-                        text.setAttribute('font-size', '16');
+                        text.setAttribute('font-size', '32');
                         text.setAttribute('text-anchor', 'middle');
                         text.setAttribute('dominant-baseline', 'middle');
                         text.setAttribute('fill', 'black');
                         text.textContent = i.toString();
-                        svg.appendChild(text);
+                        diagramSvg.appendChild(text);
                     }
                 } else if (level === 'tens') {
                     if (i === 9) {
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute('x', textX);
                         text.setAttribute('y', textY);
-                        text.setAttribute('font-size', '16');
+                        text.setAttribute('font-size', '32');
                         text.setAttribute('text-anchor', 'middle');
                         text.setAttribute('dominant-baseline', 'middle');
                         text.setAttribute('fill', 'black');
                         text.textContent = 'Больше';
-                        svg.appendChild(text);
+                        diagramSvg.appendChild(text);
                     } else {
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute('x', textX);
                         text.setAttribute('y', textY);
-                        text.setAttribute('font-size', '16');
+                        text.setAttribute('font-size', '32');
                         text.setAttribute('text-anchor', 'middle');
                         text.setAttribute('dominant-baseline', 'middle');
                         text.setAttribute('fill', 'black');
                         text.textContent = (i + 1) * 10; // Отображаем десятки без нуля
-                        svg.appendChild(text);
+                        diagramSvg.appendChild(text);
                     }
                 } else if (level === 'hundreds') {
                     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                     text.setAttribute('x', textX);
                     text.setAttribute('y', textY);
-                    text.setAttribute('font-size', '16');
+                    text.setAttribute('font-size', '32');
                     text.setAttribute('text-anchor', 'middle');
                     text.setAttribute('dominant-baseline', 'middle');
                     text.setAttribute('fill', 'black');
                     text.textContent = (i + 1) * 100; // Отображаем сотни без нуля
-                    svg.appendChild(text);
+                    diagramSvg.appendChild(text);
                 }
             }
 
@@ -257,21 +609,20 @@
             centerSemiCircle.setAttribute('d', centerSemiCircled);
             centerSemiCircle.setAttribute('stroke', 'black');
             centerSemiCircle.setAttribute('fill', 'none');
-            svg.appendChild(centerSemiCircle);
+            diagramSvg.appendChild(centerSemiCircle);
 
             // Центральная точка
             const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             centerDot.setAttribute('cx', centerX);
             centerDot.setAttribute('cy', centerY);
-            centerDot.setAttribute('r', 3);
+            centerDot.setAttribute('r', 6);
             centerDot.setAttribute('fill', 'black');
-            svg.appendChild(centerDot);
+            diagramSvg.appendChild(centerDot);
         }
 
         function handleSectorClick(event) {
             const sectorIndex = parseInt(event.target.getAttribute('data-sector'));
             selectedSector = sectorIndex;
-            lastSelectedSector = sectorIndex;
 
             if (level === 'units') {
                 if (sectorIndex === 10) {
@@ -282,7 +633,6 @@
                     }, 500);
                 } else {
                     number.units = sectorIndex;
-                    document.getElementById('valueField').value = `${number.hundreds}${number.tens}${number.units}`.replace(/^0+/, '');
                 }
             } else if (level === 'tens') {
                 if (sectorIndex === 9) {
@@ -312,19 +662,12 @@
         }
 
         function submitValue() {
-            const valueField = document.getElementById('valueField').value;
-
-            if (valueField) {
-                const targetFieldId = localStorage.getItem('targetField');
-                
-                if (targetFieldId) {
-                    localStorage.setItem(targetFieldId, valueField);
-                    window.location.href = 'index.html';
-                }
-            }
+            const value = `${number.hundreds}${number.tens}${number.units}`.replace(/^0+/, '') || 0;
+            document.getElementById(targetFieldId).value = value;
+            diagramSvg.style.display = 'none'; // Скрываем SVG
+            svg.style.display = 'block';
         }
-
-        drawDiagram(); // Рисуем диаграмму при загрузке страницы
     </script>
 </body>
+
 </html>
